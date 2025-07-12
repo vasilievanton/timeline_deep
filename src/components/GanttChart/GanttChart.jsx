@@ -22,7 +22,7 @@ const GanttChart = ({ tasks, onEditTask }) => {
     <div className="gantt-container" ref={containerRef}>
       <div className="gantt-scroll-area">
         <div className="gantt-left">
-          <GanttLeftColumn tasks={tasks} containerWidth={containerWidth} />
+          <GanttLeftColumn tasks={tasks} containerWidth={containerWidth} onEditTask={onEditTask} />
         </div>
         <div className="gantt-right-scroll">
           <GanttRightChart tasks={tasks} containerWidth={containerWidth} onEditTask={onEditTask} />

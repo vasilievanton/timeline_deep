@@ -9,44 +9,79 @@ import TaskAddModal from './components/TaskForm/TaskAddModal';
 import sampleTasks from './data/sampleTasks';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { addDays } from 'date-fns';
 import './App.css';
 
 function App() {
-  // === Основные состояния ===
   const [tasks, setTasks] = useState(sampleTasks);
   const [debugJSON, setDebugJSON] = useState('');
 
-  // === Для редактирования существующей задачи ===
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  // === Для добавления новой задачи ===
   const [addModalOpen, setAddModalOpen] = useState(false);
+  console.log(tasks);
+  // === Автоматически рассчитываем даты для approval
+  const calculateApprovalDates = (task) => {
+    if (task.approval && task.approval.duration && task.end) {
+      task.approval.start = addDays(task.end, 1);
+      task.approval.end = addDays(task.end, task.approval.duration);
+    } else if (task.approval) {
+      // если duration удалили, убираем start/end
+      delete task.approval.start;
+      delete task.approval.end;
+    }
+    return task;
+  };
 
-  // === Для удаления задачи ===
+  // === Удаление задачи
   const handleDeleteTask = (taskToDelete) => {
-    setTasks((prev) => prev.filter((t) => t !== taskToDelete));
+    setTasks((prev) => prev.filter((t) => t.index !== taskToDelete.index));
     setEditModalOpen(false);
   };
 
-  // === Обработчики редактирования ===
-  const handleEditTask = (task) => {
-    setSelectedTask(task);
-    setEditModalOpen(true);
-  };
-
+  // === Сохранение редактирования
   const handleSaveEditedTask = (updatedTask) => {
-    setTasks((prev) => prev.map((t) => (t === selectedTask ? { ...updatedTask } : t)));
+    updatedTask = calculateApprovalDates(updatedTask);
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.index !== updatedTask.index) return t;
+        return {
+          ...updatedTask,
+          approval: updatedTask.approval ? { ...updatedTask.approval } : undefined,
+        };
+      })
+    );
     setEditModalOpen(false);
   };
 
-  // === Обработчик добавления ===
+  // === Добавление новой задачи
   const handleSaveNewTask = (newTask) => {
-    setTasks((prev) => [...prev, newTask]);
+    newTask = calculateApprovalDates(newTask);
+    setTasks((prev) => {
+      const newIndex = Math.max(...prev.map((t) => t.index), 0) + 1;
+      newTask.index = newIndex;
+      return [...prev, newTask];
+    });
     setAddModalOpen(false);
   };
 
-  // === Импорт CSV ===
+  // === Редактирование
+  const handleEditTask = (task) => {
+    if (typeof task.index === 'string' && task.index.includes('-approval')) {
+      const parentIndex = parseInt(task.index.split('-')[0], 10);
+      const parentTask = tasks.find((t) => t.index === parentIndex);
+      if (parentTask) {
+        setSelectedTask(parentTask);
+        setEditModalOpen(true);
+      }
+    } else {
+      setSelectedTask(task);
+      setEditModalOpen(true);
+    }
+  };
+
+  // === Импорт CSV
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     Papa.parse(file, {
@@ -61,7 +96,7 @@ function App() {
     });
   };
 
-  // === Экспорт CSV ===
+  // === Экспорт CSV
   const handleExportCSV = () => {
     if (!tasks || tasks.length === 0) return;
 
@@ -70,7 +105,7 @@ function App() {
       'Дата начала': t.start ? new Date(t.start).toISOString().split('T')[0] : '',
       'Дата конца': t.end ? new Date(t.end).toISOString().split('T')[0] : '',
       Ответственные: t.responsibles ? t.responsibles.join('; ') : '',
-      'Срок согласования': t.level === 1 ? t.approvalDuration || 0 : '',
+      'Срок согласования': t.approval ? t.approval.duration : '',
     }));
 
     const csv = Papa.unparse(rows);
@@ -85,7 +120,7 @@ function App() {
     document.body.removeChild(link);
   };
 
-  // === Скачивание PDF ===
+  // === PDF
   const handleDownloadPDF = () => {
     const element = document.querySelector('.gantt-container');
     if (!element) return;
@@ -145,7 +180,7 @@ function App() {
 
       <TaskAddModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onSave={handleSaveNewTask} />
 
-      <TaskEditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleSaveEditedTask} task={selectedTask} />
+      <TaskEditModal open={editModalOpen} onClose={() => setEditModalOpen(false)} onSave={handleSaveEditedTask} onDelete={handleDeleteTask} task={selectedTask} blocks={tasks.filter((t) => t.level === 0)} availableResponsibles={['Deep', 'MTC']} />
     </div>
   );
 }

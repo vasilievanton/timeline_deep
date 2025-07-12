@@ -19,25 +19,37 @@ const GanttRightChart = ({ tasks, containerWidth, onEditTask }) => {
   useEffect(() => {
     if (!tasks || tasks.length === 0) return;
 
-    const rightWidth = Math.max(containerWidth * 0.75, 2000);
-    const chartHeight = tasks.length * ROW_HEIGHT;
+    // === Подготовка данных для отрисовки ===
+    const expandedTasks = [];
+    for (const t of tasks) {
+      expandedTasks.push(t);
+      if (t.approval) {
+        expandedTasks.push({
+          index: `${t.index}-approval`, // ✅ это ключевое!
+          name: `${t.name} - согласование`,
+          start: t.approval.start,
+          end: t.approval.end,
+          responsibles: t.approval.responsibles,
+          level: 2,
+        });
+      }
+    }
 
-    // === Найти диапазон всех дат в задачах ===
-    const datedTasks = tasks.filter(t => t.start && t.end);
+    const rightWidth = Math.max(containerWidth * 0.75, 2000);
+    const chartHeight = expandedTasks.length * ROW_HEIGHT;
+
+    // === Найти диапазон дат
+    const datedTasks = expandedTasks.filter((t) => t.start && t.end);
     if (datedTasks.length === 0) return;
 
-    let rawMinDate = d3.min(datedTasks, d => d.start);
-    let rawMaxDate = d3.max(datedTasks, d => d.end);
+    let rawMinDate = d3.min(datedTasks, (d) => d.start);
+    let rawMaxDate = d3.max(datedTasks, (d) => d.end);
 
-    // === ВАЖНО: Принудительно сдвигаем начало к понедельнику ===
     const minDate = d3.timeMonday.floor(rawMinDate);
-    // а конец округляем до ближайшего воскресенья, чтобы неделя завершалась
     const maxDate = d3.timeSunday.ceil(rawMaxDate);
 
-    // === Используем эти даты для шкал ===
-    const { x, y } = makeScales(tasks, rightWidth, chartHeight, minDate, maxDate);
+    const { x, y } = makeScales(expandedTasks, rightWidth, chartHeight, minDate, maxDate);
 
-    // === Очищаем старый SVG ===
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
@@ -46,15 +58,17 @@ const GanttRightChart = ({ tasks, containerWidth, onEditTask }) => {
       .attr('height', chartHeight + 100)
       .append('g')
       .attr('transform', 'translate(0,50)');
+    console.log(
+      'expandedTasks',
+      expandedTasks.map((t) => t.name)
+    );
 
-    // === Рисуем слои в правильном порядке ===
     GanttWeekendBackground(g, x, minDate, maxDate, chartHeight, theme, TOP_OFFSET);
-    GanttBlockBackground(g, y, rightWidth, tasks, theme, TOP_OFFSET);
-    GanttVerticalGrid(g, x, minDate, maxDate, chartHeight, theme, tasks, ROW_HEIGHT, TOP_OFFSET);
-    GanttHorizontalGrid(g, y, rightWidth, tasks, theme, TOP_OFFSET);
-    GanttBars(g, x, y, tasks, theme, onEditTask, TOP_OFFSET);
+    GanttBlockBackground(g, y, rightWidth, expandedTasks, theme, TOP_OFFSET);
+    GanttVerticalGrid(g, x, minDate, maxDate, chartHeight, theme, expandedTasks, ROW_HEIGHT, TOP_OFFSET);
+    GanttHorizontalGrid(g, y, rightWidth, expandedTasks, theme, TOP_OFFSET);
+    GanttBars(g, x, y, expandedTasks, theme, onEditTask, TOP_OFFSET);
     GanttTopAxis(g, x, minDate, maxDate, theme, chartHeight, TOP_OFFSET);
-
   }, [tasks, containerWidth, theme, onEditTask]);
 
   return <svg ref={svgRef}></svg>;
