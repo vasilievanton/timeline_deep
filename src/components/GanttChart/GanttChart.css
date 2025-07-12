@@ -1,0 +1,28 @@
+/* GanttChart styles */
+
+.gantt-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .gantt-scroll-area {
+    flex: 1;
+    display: flex;
+    overflow-y: auto;
+  }
+  
+  .gantt-left {
+    flex: 0 0 300px;
+    border-right: 1px solid #ddd;
+    background-color: #fff;
+  }
+  
+  .gantt-right-scroll {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  
