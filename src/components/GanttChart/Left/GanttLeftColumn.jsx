@@ -4,32 +4,19 @@ import { useTheme } from '@mui/material/styles';
 import { wrapText } from '../utils/d3Helpers';
 import { ROW_HEIGHT, BAND_PADDING } from '../utils/constants';
 
-const GanttLeftColumn = ({ tasks, containerWidth, onEditTask }) => {
+const GanttLeftColumn = ({ rows, containerWidth, onEditTask }) => {
   const svgRef = useRef();
   const theme = useTheme();
 
   useEffect(() => {
-    if (!tasks || tasks.length === 0) return;
+    if (!rows || rows.length === 0) return;
 
     const leftWidth = containerWidth * 0.25;
-
-    // === Разворачиваем approval в отдельные элементы для отрисовки ===
-    const expandedTasks = [];
-    for (const t of tasks) {
-      expandedTasks.push(t);
-      if (t.approval) {
-        expandedTasks.push({
-          name: `${t.name} - согласование`,
-          level: 2,
-        });
-      }
-    }
-
-    const chartHeight = expandedTasks.length * ROW_HEIGHT;
+    const chartHeight = rows.length * ROW_HEIGHT;
 
     const y = d3
       .scaleBand()
-      .domain(expandedTasks.map((d) => d.name))
+      .domain(rows.map((d) => d.name))
       .range([0, chartHeight])
       .padding(BAND_PADDING);
 
@@ -42,9 +29,8 @@ const GanttLeftColumn = ({ tasks, containerWidth, onEditTask }) => {
       .append('g')
       .attr('transform', 'translate(0,50)');
 
-    // === Фон для блоков (level 0) ===
     g.selectAll('.block-bg')
-      .data(expandedTasks.filter((d) => d.level === 0))
+      .data(rows.filter((d) => d.level === 0))
       .enter()
       .append('rect')
       .attr('x', 0)
@@ -53,9 +39,8 @@ const GanttLeftColumn = ({ tasks, containerWidth, onEditTask }) => {
       .attr('height', y.step())
       .attr('fill', '#eeeeee');
 
-    // === Тексты ===
     g.selectAll('.task-label')
-      .data(expandedTasks)
+      .data(rows)
       .enter()
       .append('text')
       .text((d) => d.name)
@@ -65,10 +50,14 @@ const GanttLeftColumn = ({ tasks, containerWidth, onEditTask }) => {
       .style('font-weight', (d) => (d.level === 0 ? 'bold' : 'normal'))
       .style('fill', theme.palette.text.primary)
       .style('alignment-baseline', 'middle')
-      .style('cursor', 'pointer') // курсор
-      .on('click', (event, d) => onEditTask(d)) // <<< добавляем кликабельность
+      .style('cursor', (d) => (d.level > 0 ? 'pointer' : 'default'))
+      .on('click', (event, d) => {
+        if (d.level > 0) {
+          onEditTask(d);
+        }
+      })
       .call(wrapText, leftWidth - 40);
-  }, [tasks, containerWidth, theme, onEditTask]);
+  }, [rows, containerWidth, theme, onEditTask]);
 
   return <svg ref={svgRef}></svg>;
 };
